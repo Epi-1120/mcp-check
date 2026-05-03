@@ -14,7 +14,17 @@ const child = spawn(cmd, {
   stdio: ["pipe", "pipe", "inherit"],
 });
 
-const req = {
+let out = "";
+let gotInit = false;
+let done = false;
+
+function send(msg) {
+  const body = Buffer.from(JSON.stringify(msg), "utf8");
+  child.stdin.write(`Content-Length: ${body.length}\r\n\r\n`);
+  child.stdin.write(body);
+}
+
+send({
   jsonrpc: "2.0",
   id: 1,
   method: "initialize",
@@ -23,13 +33,7 @@ const req = {
     capabilities: {},
     clientInfo: { name: "mcp-check", version: "0.0.0" },
   },
-};
-
-const body = Buffer.from(JSON.stringify(req), "utf8");
-child.stdin.write(`Content-Length: ${body.length}\r\n\r\n`);
-child.stdin.write(body);
-
-let out = "";
+});
 
 child.stdout.on("data", (chunk) => {
   out += chunk.toString("utf8");
@@ -50,9 +54,19 @@ child.stdout.on("data", (chunk) => {
 
   const msg = out.slice(start, end);
   console.log(msg);
+  out = out.slice(end);
+
+  if (!gotInit) {
+    gotInit = true;
+    send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    return;
+  }
+
+  done = true;
   child.kill();
 });
 
 child.on("exit", (code) => {
-  if (!out) process.exit(code || 1);
+  if (!done) process.exit(code || 1);
 });
