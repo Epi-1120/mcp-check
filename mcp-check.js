@@ -2,42 +2,29 @@
 
 const { spawn } = require("node:child_process");
 
-function headerEnd(buf) {
-  for (let i = 0; i <= buf.length - 4; i += 1) {
-    if (buf[i] === 13 && buf[i + 1] === 10 && buf[i + 2] === 13 && buf[i + 3] === 10) {
-      return i;
-    }
-  }
-  return -1;
+function findLine(buf) {
+  return buf.indexOf(10);
 }
 
-function frame(msg) {
-  const body = Buffer.from(JSON.stringify(msg), "utf8");
-  return Buffer.concat([
-    Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, "ascii"),
-    body,
-  ]);
+function line(msg) {
+  return Buffer.from(`${JSON.stringify(msg)}\n`, "utf8");
 }
 
 function send(child, msg) {
-  child.stdin.write(frame(msg));
+  child.stdin.write(line(msg));
 }
 
 function readOne(buf) {
-  const pos = headerEnd(buf);
+  const pos = findLine(buf);
   if (pos === -1) return null;
 
-  const header = buf.subarray(0, pos).toString("ascii");
-  const match = header.match(/content-length:\s*(\d+)/i);
-  if (!match) return { err: "no content-length" };
-
-  const start = pos + 4;
-  const end = start + Number(match[1]);
-  if (buf.length < end) return null;
+  let end = pos;
+  if (end > 0 && buf[end - 1] === 13) end -= 1;
+  if (end === 0) return { err: "blank line" };
 
   return {
-    msg: buf.subarray(start, end),
-    rest: buf.subarray(end),
+    msg: buf.subarray(0, end),
+    rest: buf.subarray(pos + 1),
   };
 }
 
@@ -61,9 +48,9 @@ function run(cmd) {
     id: 1,
     method: "initialize",
     params: {
-      protocolVersion: "2024-11-05",
+      protocolVersion: "2025-06-18",
       capabilities: {},
-      clientInfo: { name: "mcp-check", version: "0.0.0" },
+      clientInfo: { name: "mcp-check", version: "0.1.0" },
     },
   });
 
@@ -105,4 +92,4 @@ if (require.main === module) {
   run(process.argv.slice(2).join(" "));
 }
 
-module.exports = { frame, readOne };
+module.exports = { line, readOne };
