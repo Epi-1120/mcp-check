@@ -28,7 +28,7 @@ function readOne(buf) {
   };
 }
 
-function run(cmd) {
+function run(cmd, opts = {}) {
   if (!cmd) {
     console.error('usage: node mcp-check.js "node server.js"');
     process.exit(1);
@@ -42,6 +42,13 @@ function run(cmd) {
   let out = Buffer.alloc(0);
   let gotInit = false;
   let done = false;
+  const timeoutMs = opts.timeoutMs || Number(process.env.MCP_CHECK_TIMEOUT || 5000);
+  const timeout = setTimeout(() => {
+    done = true;
+    process.exitCode = 1;
+    console.error("timed out waiting for server response");
+    child.kill();
+  }, timeoutMs);
 
   send(child, {
     jsonrpc: "2.0",
@@ -78,12 +85,14 @@ function run(cmd) {
       }
 
       done = true;
+      clearTimeout(timeout);
       child.kill();
       return;
     }
   });
 
   child.on("exit", (code) => {
+    clearTimeout(timeout);
     if (!done) process.exit(code || 1);
   });
 }

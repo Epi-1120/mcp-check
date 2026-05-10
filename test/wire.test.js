@@ -51,6 +51,42 @@ test("bad line", () => {
   assert.equal(got.err, "blank line");
 });
 
+test("quiet server doesn't hang forever", { timeout: 3000 }, async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-check-"));
+  const server = path.join(dir, "server.js");
+
+  fs.writeFileSync(
+    server,
+    `#!/usr/bin/env node
+setTimeout(() => process.exit(0), 1000);
+process.stdin.resume();
+`
+  );
+
+  const cmd = `${JSON.stringify(process.execPath)} ${JSON.stringify(server)}`;
+  const cli = spawn(process.execPath, [path.join(__dirname, "..", "mcp-check.js"), cmd], {
+    env: { ...process.env, MCP_CHECK_TIMEOUT: "50" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let err = "";
+  cli.stderr.on("data", (chunk) => {
+    err += chunk.toString("utf8");
+  });
+
+  try {
+    const code = await new Promise((resolve, reject) => {
+      cli.once("error", reject);
+      cli.once("close", resolve);
+    });
+
+    assert.equal(code, 1);
+    assert.match(err, /timed out/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("talks to a tiny server", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-check-"));
   const server = path.join(dir, "server.js");

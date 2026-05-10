@@ -8,7 +8,7 @@ It starts a command, sends `initialize`, then asks for `tools/list`. Messages us
 node mcp-check.js "node server.js"
 ```
 
-The command prints the two JSON-RPC responses it gets back. That's all it is for right now.
+The command prints the two JSON-RPC responses it gets back. If the server never answers, it gives up after five seconds.
 
 ```sh
 npm test
