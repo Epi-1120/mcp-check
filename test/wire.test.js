@@ -45,6 +45,13 @@ test("utf8 line", () => {
   assert.deepEqual(json(got), msg);
 });
 
+test("crlf line", () => {
+  const msg = { jsonrpc: "2.0", id: 4, result: { tools: [{ name: "spike" }] } };
+  const got = readOne(Buffer.from(`${JSON.stringify(msg)}\r\n`, "utf8"));
+
+  assert.deepEqual(json(got), msg);
+});
+
 test("bad line", () => {
   const got = readOne(Buffer.from("\n"));
 
